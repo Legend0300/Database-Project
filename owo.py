@@ -1,13 +1,118 @@
 import mysql.connector
+
 # Connect to MySQL
 mydb = mysql.connector.connect(
-user='root',
-password='root',
-host='localhost',
-database='fortnite'
+    user='root',
+    password='root',
+    host='localhost',
+    database='fortnite'
 )
+
 # Create cursor
 cursor = mydb.cursor()
+
+# Create tables
+create_tables = """
+
+
+-- Create Update table
+CREATE TABLE `Update` (
+    VersionID INT AUTO_INCREMENT PRIMARY KEY,
+    UpdateDate DATE
+);
+
+
+-- Create Cosmetic table
+CREATE TABLE Cosmetic (
+    CosmeticID INT AUTO_INCREMENT PRIMARY KEY,
+    CosmeticName VARCHAR(255),
+    Price DECIMAL(10, 2),
+    VersionID INT,
+    CONSTRAINT fk_version_cosmetic FOREIGN KEY (VersionID) REFERENCES `Update`(VersionID)
+);
+
+
+-- Create Player table
+CREATE TABLE Player (
+    PlayerID INT AUTO_INCREMENT PRIMARY KEY,
+    Email VARCHAR(255) UNIQUE,
+    Password VARCHAR(255),
+    CosmeticEquipped INT,
+    CONSTRAINT fk_cosmetic FOREIGN KEY (CosmeticEquipped) REFERENCES Cosmetic(CosmeticID)
+);
+
+
+-- Create Weapon table
+CREATE TABLE Weapon (
+    WeaponID INT AUTO_INCREMENT PRIMARY KEY,
+    WeaponName VARCHAR(255),
+    Damage INT,
+    FireRate DECIMAL(5, 2),
+    VersionID INT,
+    CONSTRAINT fk_version_weapon FOREIGN KEY (VersionID) REFERENCES Update(VersionID)
+);
+
+-- Create Location table
+CREATE TABLE Location (
+    LocationID INT AUTO_INCREMENT PRIMARY KEY,
+    LocationName VARCHAR(255),
+    WeaponsAvailableAmount INT,
+    MaterialAvailableAmount INT,
+    DistanceFromCenter DECIMAL(10, 2),
+    VersionID INT,
+    CONSTRAINT fk_version_location FOREIGN KEY (VersionID) REFERENCES Update(VersionID)
+);
+
+
+-- Create Match table
+CREATE TABLE `Match` (
+    MatchID INT AUTO_INCREMENT PRIMARY KEY,
+    DatePlayed DATE,
+    WinnerPlayerID INT,
+    CONSTRAINT fk_winner_player FOREIGN KEY (WinnerPlayerID) REFERENCES Player(PlayerID)
+);
+
+-- Create Play table
+CREATE TABLE Play (
+    PlayerID INT,
+    MatchID INT,
+    Kills INT,
+    TimePlayed TIME,
+    WeaponUsed INT,
+    LocationVisited INT,
+    CONSTRAINT fk_player_play FOREIGN KEY (PlayerID) REFERENCES Player(PlayerID),
+    CONSTRAINT fk_match_play FOREIGN KEY (MatchID) REFERENCES `Match`(MatchID),
+    CONSTRAINT fk_weapon_play FOREIGN KEY (WeaponUsed) REFERENCES Weapon(WeaponID),
+    CONSTRAINT fk_location_play FOREIGN KEY (LocationVisited) REFERENCES Location(LocationID),
+    PRIMARY KEY (PlayerID, MatchID)
+);
+
+-- Create Purchase table
+CREATE TABLE Purchase (
+    PlayerID INT,
+    CosmeticID INT,
+    DatePurchased DATE,
+    CONSTRAINT fk_player_purchase FOREIGN KEY (PlayerID) REFERENCES Player(PlayerID),
+    CONSTRAINT fk_cosmetic_purchase FOREIGN KEY (CosmeticID) REFERENCES Cosmetic(CosmeticID),
+    PRIMARY KEY (PlayerID, CosmeticID)
+);
+
+-- Create Friendship table
+CREATE TABLE Friendship (
+    PlayerID1 INT,
+    PlayerID2 INT,
+    CONSTRAINT fk_player1_friendship FOREIGN KEY (PlayerID1) REFERENCES Player(PlayerID),
+    CONSTRAINT fk_player2_friendship FOREIGN KEY (PlayerID2) REFERENCES Player(PlayerID),
+    PRIMARY KEY (PlayerID1, PlayerID2)
+);
+"""
+
+# Execute table creation queries
+try:
+    cursor.execute(create_tables, multi=True)
+    print("Tables created successfully")
+except mysql.connector.Error as err:
+    print(f"Error: {err.msg}")
 
 # Create procedures for CRUD operations on Player table
 player_procedures = """
@@ -271,13 +376,6 @@ BEGIN
     SELECT * FROM `Match`;
 END;
 
--- Create Procedure to randomly select 100 players
-CREATE PROCEDURE get_players_random()
-BEGIN
-    SELECT * FROM Player ORDER BY RAND() LIMIT 100;
-END;
-
-
 -- Create Procedure for Updating a Match
 CREATE PROCEDURE update_match(
     IN p_match_id INT,
@@ -354,25 +452,18 @@ BEGIN
 END;
 """
 
-# Create procedures for CRUD operations on Player table
-procedures = [
-player_procedures,
-cosmetics_procedures,
-weapon_procedures,
-location_procedures,
-updates_procedures,
-play_procedures,
-match_procedures,
-purchase_procedures,
-friends_procedures
-]
 # Execute procedures
-for procedure in procedures:
-    try:
-        cursor.execute(procedure)
-        print(f"Executed: {procedure}")
-    except mysql.connector.Error as err:
-        print(f"Error: {err.msg}")
+procedures = [
+    player_procedures,
+    cosmetics_procedures,
+    weapon_procedures,
+    location_procedures,
+    updates_procedures,
+    play_procedures,
+    match_procedures,
+    purchase_procedures,
+    friends_procedures
+]
 
 # Commit changes
 mydb.commit()
@@ -380,4 +471,3 @@ mydb.commit()
 # Close connection
 cursor.close()
 mydb.close()
-
